@@ -1,0 +1,69 @@
+config:
+  user: kwasek
+templates:
+  - name: archlinux-x11
+    tagfilter: '^((?!latest).)*$'
+    dockerfilecontent: |
+      FROM archlinux:latest
+
+      RUN pacman -Syu --noconfirm \
+          && pacman -S --noconfirm git base-devel sudo mesa-demos \
+          && rm -rf /var/cache/pacman/pkg/*
+
+      RUN echo "Defaults         lecture = never" > /etc/sudoers.d/privacy \
+          && echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/wheel
+
+      RUN useradd -u 2001 -m -G wheel -s /bin/bash builder
+
+      USER builder
+      WORKDIR /home/builder
+
+      RUN git clone https://aur.archlinux.org/yay.git \
+          && cd yay \
+          && makepkg -si --noconfirm \
+          && sudo rm -rf /var/cache/pacman/pkg/* /home/builder/yay /home/builder/.cache
+  - name: ubuntu-x11
+    tagfilter: '^focal-.*'
+    dockerfilecontent: |
+      FROM ubuntu:latest
+
+      ENV DEBIAN_FRONTEND noninteractive
+
+      RUN apt-get -y update && \
+          apt-get -y install tzdata dbus-x11 libcanberra-gtk-module libcanberra-gtk3-module pulseaudio wget curl gnupg && \
+          apt-get clean
+    images:
+      - package: spotify-client
+        name: spotify
+        repository: deb http://repository.spotify.com stable non-free
+        dockerfilecontent: |
+          FROM ubuntu-x11:latest
+
+          ENV DEBIAN_FRONTEND noninteractive
+
+          RUN echo "REPLACE_REPOSITORY" > /etc/apt/sources.list.d/spotify.list
+          RUN curl -L https://download.spotify.com/debian/pubkey.gpg | apt-key add -
+
+          RUN apt-get -y install REPLACE_PACKAGE && \
+              apt-get clean
+
+          USER root
+
+          COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+          ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+        entrypointcontent: |
+          #!/bin/bash
+
+          uid=$1
+          re='^[0-9]+$'
+
+          if [ -z $uid ]; then
+            uid=1000
+          elif [[ ! $uid =~ $re ]]; then
+            echo "error: Invalid user uid: $uid"
+            exit 1
+          fi
+
+          useradd -u $uid -m -G games,lock,network,users,video,uucp,storage,optical,input,disk,audio -s /bin/bash docker
+
+          sudo -i -u docker PULSE_SERVER=/run/pulse/native spotify
