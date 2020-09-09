@@ -58,9 +58,8 @@ class main():
       logging.info('Updating image')
       logging.info("DIFF:\n{}".format(self.getMultilineDiff(currentContent, yamlcontent)))
       self.overwriteFile(dir, dockerfile, yamlcontent)
-      self.checkAndUpdateVersionFile(dir, latestVersion)
-      return True
-    return False
+      return self.checkAndUpdateVersionFile(dir, latestVersion)
+    return self.getFile(dir, 'version')
   
   def checkAndUpdateVersionFile(self, dir, version):
     versionFile = 'version'
@@ -73,6 +72,7 @@ class main():
       logging.info('Updating version')
       logging.info("DIFF:\n{}".format(self.getMultilineDiff(content, versionWithBuild)))
       self.overwriteFile(dir, versionFile, versionWithBuild)
+    return versionWithBuild
 
 
   def getRegistryLatest(self, fromImage):
@@ -99,12 +99,14 @@ class main():
     logging.info("Registry latest image: {}, tag: {}, upload: {}".format(image, newestTag, newestVersion))
     return newestTag
 
+#  def checkAndUpdateAurImage(self, dir, dockerfile, package):
+    
 
   def main(self):
     logging.info(self.images)
     for template in self.images['templates']:
       content = self.getFile(template['dir'], 'Dockerfile')
-      updateStatus = self.checkAndUpdateVersionsRegistry(content, template['dir'], 'Dockerfile', template['dockerfilecontent'])
+      version = self.checkAndUpdateVersionsRegistry(content, template['dir'], 'Dockerfile', template['dockerfilecontent'])
       for image in template['images']:
         print(image)
 

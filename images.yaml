@@ -1,6 +1,5 @@
 templates:
-  - name: template-archlinux
-    dir: template-archlinux
+  - dir: template-archlinux
     dockerfilecontent: |
       FROM archlinux:latest
 
@@ -23,3 +22,30 @@ templates:
     images:
       - name: spotify
         dir: spotify
+        dockerfilecontent: |
+          FROM docker-app-template-archlinux:latest
+
+          RUN gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 931FF8E79F0876134EDDBDCCA87FF9DF48BF1C90 2EBF997C15BDA244B6EBF5D84773BD5E130D1D45
+          RUN yay -Syu --noconfirm && yay --noconfirm -S spotify libcanberra gtk3 \
+              && sudo rm -rf /var/cache/pacman/pkg/* /home/builder/yay /home/builder/.cache
+
+          USER root
+
+          COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+          ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+        entrypointcontent: |
+          #!/bin/bash
+
+          uid=$1
+          re='^[0-9]+$'
+
+          if [ -z $uid ]; then
+            uid=1000
+          elif [[ ! $uid =~ $re ]]; then
+            echo "error: Invalid user uid: $uid"
+            exit 1
+          fi
+
+          useradd -u $uid -m -G games,lock,network,users,video,uucp,storage,optical,input,disk,audio -s /bin/bash docker
+
+          sudo -i -u docker PULSE_SERVER=/run/pulse/native spotify
