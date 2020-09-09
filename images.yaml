@@ -1,0 +1,7 @@
+templates:
+  - name: template-archlinux
+    dir: template-archlinux
+    dockerfile: Dockerfile
+    images:
+      - name: spotify
+        dir: spotify
