@@ -48,9 +48,9 @@ class main():
   def getMultilineDiff(self, a, b):
     return ''.join(difflib.ndiff(a.splitlines(1), b.splitlines(1)))
   
-  def checkAndUpdateVersionsRegistry(self, currentContent, dir, dockerfile, yamlcontent):
-    froms = self.getFromVariables(yamlcontent)
-    fromValue = froms[0]
+  def checkAndUpdateVersionsRegistry(self, dir, dockerfile, yamlcontent):
+    currentContent = self.getFile(dir, dockerfile)
+    fromValue = self.getFromVariables(yamlcontent)[0]
     fromImage, fromVersion = self.getFromDecode(fromValue)
     latestVersion = self.getRegistryLatest(fromImage)
     yamlcontent = yamlcontent.replace(fromValue, 'FROM {}:{}'.format(fromImage, latestVersion))
@@ -99,15 +99,33 @@ class main():
     logging.info("Registry latest image: {}, tag: {}, upload: {}".format(image, newestTag, newestVersion))
     return newestTag
 
-#  def checkAndUpdateAurImage(self, dir, dockerfile, package):
-    
+  def checkAndUpdateAurImage(self, dir, dockerfile, entrypointfile, dockerfilecontent, entrypointcontent, templateVersion):
+    change = False
+    currentContent = self.getFile(dir, dockerfile)
+    currentEntrypoint = self.getFile(dir, entrypointfile)
+    fromValue = self.getFromVariables(dockerfilecontent)[0]
+    fromImage, fromVersion = self.getFromDecode(fromValue)
+    dockerfilecontent = dockerfilecontent.replace(fromValue, 'FROM {}:{}'.format(fromImage, templateVersion))
+    if dockerfilecontent != currentContent:
+      logging.info('Updating image')
+      logging.info("DIFF:\n{}".format(self.getMultilineDiff(currentContent, dockerfilecontent)))
+      self.overwriteFile(dir, dockerfile, dockerfilecontent)
+      change = True
+    if entrypointcontent != currentEntrypoint:
+      logging.info('Updating entrypoint')
+      logging.info("DIFF:\n{}".format(self.getMultilineDiff(currentEntrypoint, entrypointcontent)))
+      self.overwriteFile(dir, entrypointfile, entrypointcontent)
+      change = True
+    if change:
+      self.checkAndUpdateVersionFile(dir, latestVersion)
+
 
   def main(self):
     logging.info(self.images)
     for template in self.images['templates']:
-      content = self.getFile(template['dir'], 'Dockerfile')
-      version = self.checkAndUpdateVersionsRegistry(content, template['dir'], 'Dockerfile', template['dockerfilecontent'])
+      templateVersion = self.checkAndUpdateVersionsRegistry(template['dir'], 'Dockerfile', template['dockerfilecontent'])
       for image in template['images']:
+        self.checkAndUpdateAurImage(image['dir'], 'Dockerfile', 'entrypoint.sh', image['dockerfilecontent'], image['entrypointcontent'], templateVersion)
         print(image)
 
 if __name__ == '__main__':
