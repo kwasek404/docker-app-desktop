@@ -8,5 +8,6 @@ docker run \
   -v $XDG_RUNTIME_DIR/pulse:/run/pulse:ro \
   -v "$HOME/docker-app/$2":/home/docker \
   --device /dev/dri \
+  -v /etc/localtime:/etc/localtime:ro \
   $1 \
   $(id -u)
