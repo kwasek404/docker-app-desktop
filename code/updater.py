@@ -8,6 +8,7 @@ import yaml
 import re
 import datetime
 import difflib
+import zlib
 
 class main():
   mainDir = None
@@ -81,7 +82,7 @@ class main():
       image = fromImage
     else:
       owner, image = fromImage.split('/')
-    URL = "https://registry.hub.docker.com/v2/repositories/{}/{}/tags".format(owner, image)
+    URL = 'https://registry.hub.docker.com/v2/repositories/{}/{}/tags'.format(owner, image)
     response = requests.get(URL).text
     responseYaml = yaml.load(response, Loader=yaml.SafeLoader)
     newestTag = None
@@ -96,10 +97,25 @@ class main():
           if tmp > newestVersion:
             newestTag = upload['name']
             newestVersion = tmp
-    logging.info("Registry latest image: {}, tag: {}, upload: {}".format(image, newestTag, newestVersion))
+    logging.info('Registry latest image: {}, tag: {}, upload: {}'.format(image, newestTag, newestVersion))
     return newestTag
 
-  def checkAndUpdateAurImage(self, dir, dockerfile, entrypointfile, dockerfilecontent, entrypointcontent, templateVersion):
+  def getRepositoryLatestVersion(self, repository, packageName):
+    repository = repository.split()
+    URL = '{}/dists/{}'.format(repository[1], repository[2])
+    packages = list()
+    for i in range(3, len(repository)):
+      packagesURL = '{}/{}/binary-amd64/Packages.gz'.format(URL, repository[i])
+      data = zlib.decompress(requests.get(packagesURL).content, 16+zlib.MAX_WBITS).decode('UTF-8')
+      for package in filter(None, data.split('\n\n')):
+        packageDetails = yaml.load(package, Loader=yaml.SafeLoader)
+        if packageDetails['Package'] == packageName:
+          packages.append(packageDetails)
+    print(packages)
+    #todo select latest
+
+  def checkAndUpdateDebImage(self, dir, dockerfile, entrypointfile, dockerfilecontent, entrypointcontent, templateVersion, repository, package):
+    self.getRepositoryLatestVersion(repository, package)
     change = False
     currentContent = self.getFile(dir, dockerfile)
     currentEntrypoint = self.getFile(dir, entrypointfile)
@@ -108,12 +124,12 @@ class main():
     dockerfilecontent = dockerfilecontent.replace(fromValue, 'FROM {}:{}'.format(fromImage, templateVersion))
     if dockerfilecontent != currentContent:
       logging.info('Updating image')
-      logging.info("DIFF:\n{}".format(self.getMultilineDiff(currentContent, dockerfilecontent)))
+      logging.info('DIFF:\n{}'.format(self.getMultilineDiff(currentContent, dockerfilecontent)))
       self.overwriteFile(dir, dockerfile, dockerfilecontent)
       change = True
     if entrypointcontent != currentEntrypoint:
       logging.info('Updating entrypoint')
-      logging.info("DIFF:\n{}".format(self.getMultilineDiff(currentEntrypoint, entrypointcontent)))
+      logging.info('DIFF:\n{}'.format(self.getMultilineDiff(currentEntrypoint, entrypointcontent)))
       self.overwriteFile(dir, entrypointfile, entrypointcontent)
       change = True
     if change:
@@ -125,7 +141,7 @@ class main():
     for template in self.images['templates']:
       templateVersion = self.checkAndUpdateVersionsRegistry(template['dir'], 'Dockerfile', template['dockerfilecontent'])
       for image in template['images']:
-        self.checkAndUpdateAurImage(image['dir'], 'Dockerfile', 'entrypoint.sh', image['dockerfilecontent'], image['entrypointcontent'], templateVersion)
+        self.checkAndUpdateDebImage(image['dir'], 'Dockerfile', 'entrypoint.sh', image['dockerfilecontent'], image['entrypointcontent'], templateVersion, image['repository'], image['package'])
         print(image)
 
 if __name__ == '__main__':

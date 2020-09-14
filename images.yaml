@@ -9,14 +9,15 @@ templates:
           apt-get -y install tzdata dbus-x11 libcanberra-gtk-module libcanberra-gtk3-module pulseaudio wget curl gnupg && \
           apt-get clean
     images:
-      - name: spotify
+      - package: spotify-client
         dir: spotify
+        repository: deb http://repository.spotify.com stable non-free
         dockerfilecontent: |
           FROM docker-app-ubuntu-x11:latest
 
           ENV DEBIAN_FRONTEND noninteractive
 
-          RUN echo "deb http://repository.spotify.com stable non-free" > /etc/apt/sources.list.d/spotify.list
+          RUN echo "REPLACE_REPOSITORY" > /etc/apt/sources.list.d/spotify.list
           RUN curl -L https://download.spotify.com/debian/pubkey.gpg | apt-key add -
 
           RUN apt-get -y install spotify && \
