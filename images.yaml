@@ -1,5 +1,7 @@
+config:
+  user: kwasek
 templates:
-  - dir: ubuntu-x11
+  - name: ubuntu-x11
     tagfilter: '^focal-.*'
     dockerfilecontent: |
       FROM ubuntu:latest
@@ -11,7 +13,7 @@ templates:
           apt-get clean
     images:
       - package: spotify-client
-        dir: spotify
+        name: spotify
         repository: deb http://repository.spotify.com stable non-free
         dockerfilecontent: |
           FROM docker-app-ubuntu-x11:latest

@@ -52,11 +52,13 @@ class main():
   def getMultilineDiff(self, a, b):
     return ''.join(difflib.ndiff(a.splitlines(1), b.splitlines(1)))
   
-  def checkAndUpdateVersionsRegistry(self, dir, dockerfile, yamlcontent):
+  def checkAndUpdateVersionsRegistry(self, template, dockerfile):
+    dir = template['name']
+    yamlcontent = template['dockerfilecontent']
     currentContent = self.getFile(dir, dockerfile)
     fromValue = self.getFromVariables(yamlcontent)[0]
     fromImage, fromVersion = self.getFromDecode(fromValue)
-    latestVersion = self.getRegistryLatest(fromImage)
+    latestVersion = self.getRegistryLatest(fromImage, template['tagfilter'])
     yamlcontent = yamlcontent.replace(fromValue, 'FROM {}:{}'.format(fromImage, latestVersion))
     if yamlcontent != currentContent:
       self.log.info('Updating image')
@@ -79,7 +81,7 @@ class main():
     return versionWithBuild
 
 
-  def getRegistryLatest(self, fromImage):
+  def getRegistryLatest(self, fromImage, tagfilter):
     if fromImage.find('/') == -1:
       owner = 'library'
       image = fromImage
@@ -91,7 +93,7 @@ class main():
     newestTag = None
     newestVersion = None
     for upload in responseYaml['results']:
-      if upload['name'] != 'latest':
+      if re.match(r'{}'.format(tagfilter), upload['name']):
         if newestVersion == None:
           newestTag = upload['name']
           newestVersion = datetime.datetime.strptime(upload['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
@@ -126,18 +128,26 @@ class main():
     self.log.info('Package: {}, latest version: {}'.format(packageName, version))
     return version
 
-  def checkAndUpdateDebImage(self, dir, dockerfile, entrypointfile, dockerfilecontent, entrypointcontent, templateVersion, repository, package):
+  def checkAndUpdateDebImage(self, image, entrypointfile, templateVersion, user):
+    dir = image['name']
+    dockerfilecontent = image['dockerfilecontent']
+    entrypointcontent = image['entrypointcontent']
+    repository = image['repository']
+    package = image['package']
     latestVersion = self.getDebRepositoryLatestVersion(repository, package)
     change = False
-    currentContent = self.getFile(dir, dockerfile)
+    currentContent = self.getFile(dir, 'Dockerfile-hub')
     currentEntrypoint = self.getFile(dir, entrypointfile)
     fromValue = self.getFromVariables(dockerfilecontent)[0]
     fromImage, fromVersion = self.getFromDecode(fromValue)
-    dockerfilecontent = dockerfilecontent.replace(fromValue, 'FROM {}:{}'.format(fromImage, templateVersion))
-    if dockerfilecontent != currentContent:
+    dockerfilecontent = dockerfilecontent.replace('REPLACE_REPOSITORY', image['repository'])
+    dockerfilecontentlocal = dockerfilecontent.replace(fromValue, 'FROM {}:{}'.format(fromImage, templateVersion))
+    dockerfilecontenthub = dockerfilecontent.replace(fromValue, 'FROM {}/{}:{}'.format(user, fromImage, templateVersion))
+    if dockerfilecontenthub != currentContent:
       self.log.info('Updating image')
-      self.log.info('DIFF:\n{}'.format(self.getMultilineDiff(currentContent, dockerfilecontent)))
-      self.overwriteFile(dir, dockerfile, dockerfilecontent)
+      self.log.info('DIFF:\n{}'.format(self.getMultilineDiff(currentContent, dockerfilecontenthub)))
+      self.overwriteFile(dir, 'Dockerfile-local', dockerfilecontentlocal)
+      self.overwriteFile(dir, 'Dockerfile-hub', dockerfilecontenthub)
       change = True
     if entrypointcontent != currentEntrypoint:
       self.log.info('Updating entrypoint')
@@ -149,12 +159,10 @@ class main():
 
 
   def main(self):
-    self.log.info(self.images)
     for template in self.images['templates']:
-      templateVersion = self.checkAndUpdateVersionsRegistry(template['dir'], 'Dockerfile', template['dockerfilecontent'])
+      templateVersion = self.checkAndUpdateVersionsRegistry(template, 'Dockerfile')
       for image in template['images']:
-        self.checkAndUpdateDebImage(image['dir'], 'Dockerfile', 'entrypoint.sh', image['dockerfilecontent'], image['entrypointcontent'], templateVersion, image['repository'], image['package'])
-        print(image)
+        self.checkAndUpdateDebImage(image, 'entrypoint.sh', templateVersion, self.images['config']['user'])
 
 if __name__ == '__main__':
   main().main()
