@@ -9,29 +9,31 @@ import re
 import datetime
 import difflib
 import zlib
-from distutils.version import LooseVersion
+from pydpkg import Dpkg
 
 class main():
   mainDir = None
   images = None
 
   def __init__(self):
-    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(message)s', stream=sys.stdout)
+    logging.basicConfig(format='%(levelname)s %(message)s', stream=sys.stdout)
+    self.log = logging.getLogger(__name__)
+    self.log.setLevel(logging.DEBUG)
     self.mainDir = os.path.dirname(os.path.realpath(sys.argv[0]))
     with open('{}/../images.yaml'.format(self.mainDir), 'r') as f:
       self.images = yaml.load(f, Loader=yaml.SafeLoader)
 
   def getFile(self, dir, filename):
-    logging.info('Reading file: {}/{}'.format(dir, filename))
+    self.log.info('Reading file: {}/{}'.format(dir, filename))
     try:
       with open('{}/../{}/{}'.format(self.mainDir, dir, filename), 'r') as f:
         return f.read()
     except FileNotFoundError:
-      logging.info('Missing file: {}/{}'.format(dir, filename))
+      self.log.info('Missing file: {}/{}'.format(dir, filename))
       return ''
   
   def overwriteFile(self, dir, filename, content):
-    logging.info('Writing file: {}/{}'.format(dir, filename))
+    self.log.info('Writing file: {}/{}'.format(dir, filename))
     self.checkAndCreateDir(dir)
     with open('{}/../{}/{}'.format(self.mainDir, dir, filename), 'w') as f:
       return f.write(content)
@@ -44,7 +46,7 @@ class main():
   
   def checkAndCreateDir(self, dir):
     if not os.path.exists(dir):
-      logging.info('Dir: {} doesnt exists, creating'.format(dir))
+      self.log.info('Dir: {} doesnt exists, creating'.format(dir))
       os.makedirs(dir)
   
   def getMultilineDiff(self, a, b):
@@ -57,8 +59,8 @@ class main():
     latestVersion = self.getRegistryLatest(fromImage)
     yamlcontent = yamlcontent.replace(fromValue, 'FROM {}:{}'.format(fromImage, latestVersion))
     if yamlcontent != currentContent:
-      logging.info('Updating image')
-      logging.info("DIFF:\n{}".format(self.getMultilineDiff(currentContent, yamlcontent)))
+      self.log.info('Updating image')
+      self.log.info("DIFF:\n{}".format(self.getMultilineDiff(currentContent, yamlcontent)))
       self.overwriteFile(dir, dockerfile, yamlcontent)
       return self.checkAndUpdateVersionFile(dir, latestVersion)
     return self.getFile(dir, 'version')
@@ -71,8 +73,8 @@ class main():
     else:
       versionWithBuild = '{}.{:02d}'.format(version, int(content.split('.')[-1])+1)
     if content != versionWithBuild:
-      logging.info('Updating version')
-      logging.info("DIFF:\n{}".format(self.getMultilineDiff(content, versionWithBuild)))
+      self.log.info('Updating version')
+      self.log.info("DIFF:\n{}".format(self.getMultilineDiff(content, versionWithBuild)))
       self.overwriteFile(dir, versionFile, versionWithBuild)
     return versionWithBuild
 
@@ -98,7 +100,7 @@ class main():
           if tmp > newestVersion:
             newestTag = upload['name']
             newestVersion = tmp
-    logging.info('Registry latest image: {}, tag: {}, upload: {}'.format(image, newestTag, newestVersion))
+    self.log.info('Registry latest image: {}, tag: {}, upload: {}'.format(image, newestTag, newestVersion))
     return newestTag
 
   def convertDebPackagesSectionToYaml(self, section):
@@ -106,7 +108,6 @@ class main():
     newSection = list()
     for line in section.split('\n'):
       newSection.append(re.sub(r'(?<=\: )(.*?)\: ', '', line))
-    print(newSection)
     return yaml.load('\n'.join(newSection), Loader=yaml.SafeLoader)
 
   def getDebRepositoryLatestVersion(self, repository, packageName):
@@ -120,9 +121,10 @@ class main():
         packageDetails = self.convertDebPackagesSectionToYaml(package)
         if packageDetails['Package'] == packageName:
           packages.append(packageDetails)
-    version = sorted(packages, key = lambda x:LooseVersion(x['Version']), reverse=True)
-    version = re.sub(r'^.*:', '', version[0]['Version'])
-    logging.info('Package: {}, latest version: {}'.format(packageName, version))
+    version = sorted(packages, key = lambda x:Dpkg.compare_versions_key(x['Version']), reverse=True)
+    #version = re.sub(r'^.*:', '', version[0]['Version'])
+    version = version[0]['Version']
+    self.log.info('Package: {}, latest version: {}'.format(packageName, version))
     return version
 
   def checkAndUpdateDebImage(self, dir, dockerfile, entrypointfile, dockerfilecontent, entrypointcontent, templateVersion, repository, package):
@@ -134,13 +136,13 @@ class main():
     fromImage, fromVersion = self.getFromDecode(fromValue)
     dockerfilecontent = dockerfilecontent.replace(fromValue, 'FROM {}:{}'.format(fromImage, templateVersion))
     if dockerfilecontent != currentContent:
-      logging.info('Updating image')
-      logging.info('DIFF:\n{}'.format(self.getMultilineDiff(currentContent, dockerfilecontent)))
+      self.log.info('Updating image')
+      self.log.info('DIFF:\n{}'.format(self.getMultilineDiff(currentContent, dockerfilecontent)))
       self.overwriteFile(dir, dockerfile, dockerfilecontent)
       change = True
     if entrypointcontent != currentEntrypoint:
-      logging.info('Updating entrypoint')
-      logging.info('DIFF:\n{}'.format(self.getMultilineDiff(currentEntrypoint, entrypointcontent)))
+      self.log.info('Updating entrypoint')
+      self.log.info('DIFF:\n{}'.format(self.getMultilineDiff(currentEntrypoint, entrypointcontent)))
       self.overwriteFile(dir, entrypointfile, entrypointcontent)
       change = True
     if change:
@@ -148,7 +150,7 @@ class main():
 
 
   def main(self):
-    logging.info(self.images)
+    self.log.info(self.images)
     for template in self.images['templates']:
       templateVersion = self.checkAndUpdateVersionsRegistry(template['dir'], 'Dockerfile', template['dockerfilecontent'])
       for image in template['images']:
