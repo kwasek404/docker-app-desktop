@@ -9,6 +9,7 @@ import re
 import datetime
 import difflib
 import zlib
+from distutils.version import LooseVersion
 
 class main():
   mainDir = None
@@ -65,7 +66,7 @@ class main():
   def checkAndUpdateVersionFile(self, dir, version):
     versionFile = 'version'
     content = self.getFile(dir, versionFile)
-    if content == '' or version != ''.join(content.split('.')[:-1]):
+    if content == '' or version != '.'.join(content.split('.')[:-1]):
       versionWithBuild = '{}.01'.format(version)
     else:
       versionWithBuild = '{}.{:02d}'.format(version, int(content.split('.')[-1])+1)
@@ -100,7 +101,15 @@ class main():
     logging.info('Registry latest image: {}, tag: {}, upload: {}'.format(image, newestTag, newestVersion))
     return newestTag
 
-  def getRepositoryLatestVersion(self, repository, packageName):
+  def convertDebPackagesSectionToYaml(self, section):
+    section = section.replace('\n ', '')
+    newSection = list()
+    for line in section.split('\n'):
+      newSection.append(re.sub(r'(?<=\: )(.*?)\: ', '', line))
+    print(newSection)
+    return yaml.load('\n'.join(newSection), Loader=yaml.SafeLoader)
+
+  def getDebRepositoryLatestVersion(self, repository, packageName):
     repository = repository.split()
     URL = '{}/dists/{}'.format(repository[1], repository[2])
     packages = list()
@@ -108,14 +117,16 @@ class main():
       packagesURL = '{}/{}/binary-amd64/Packages.gz'.format(URL, repository[i])
       data = zlib.decompress(requests.get(packagesURL).content, 16+zlib.MAX_WBITS).decode('UTF-8')
       for package in filter(None, data.split('\n\n')):
-        packageDetails = yaml.load(package, Loader=yaml.SafeLoader)
+        packageDetails = self.convertDebPackagesSectionToYaml(package)
         if packageDetails['Package'] == packageName:
           packages.append(packageDetails)
-    print(packages)
-    #todo select latest
+    version = sorted(packages, key = lambda x:LooseVersion(x['Version']), reverse=True)
+    version = re.sub(r'^.*:', '', version[0]['Version'])
+    logging.info('Package: {}, latest version: {}'.format(packageName, version))
+    return version
 
   def checkAndUpdateDebImage(self, dir, dockerfile, entrypointfile, dockerfilecontent, entrypointcontent, templateVersion, repository, package):
-    self.getRepositoryLatestVersion(repository, package)
+    latestVersion = self.getDebRepositoryLatestVersion(repository, package)
     change = False
     currentContent = self.getFile(dir, dockerfile)
     currentEntrypoint = self.getFile(dir, entrypointfile)
