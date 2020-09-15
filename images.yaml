@@ -1,5 +1,6 @@
 templates:
   - dir: ubuntu-x11
+    tagfilter: '^focal-.*'
     dockerfilecontent: |
       FROM ubuntu:latest
 
@@ -20,7 +21,7 @@ templates:
           RUN echo "REPLACE_REPOSITORY" > /etc/apt/sources.list.d/spotify.list
           RUN curl -L https://download.spotify.com/debian/pubkey.gpg | apt-key add -
 
-          RUN apt-get -y install spotify && \
+          RUN apt-get -y install REPLACE_PACKAGE && \
               apt-get clean
 
           USER root
