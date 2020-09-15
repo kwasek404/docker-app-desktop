@@ -122,7 +122,6 @@ class main():
         if packageDetails['Package'] == packageName:
           packages.append(packageDetails)
     version = sorted(packages, key = lambda x:Dpkg.compare_versions_key(x['Version']), reverse=True)
-    #version = re.sub(r'^.*:', '', version[0]['Version'])
     version = version[0]['Version']
     self.log.info('Package: {}, latest version: {}'.format(packageName, version))
     return version
@@ -146,7 +145,7 @@ class main():
       self.overwriteFile(dir, entrypointfile, entrypointcontent)
       change = True
     if change:
-      self.checkAndUpdateVersionFile(dir, latestVersion)
+      self.checkAndUpdateVersionFile(dir, re.sub(r'^.*:', '', latestVersion))
 
 
   def main(self):
