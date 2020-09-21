@@ -9,7 +9,7 @@ git:
 before_install:
   - git config --global user.email "travis@travis-ci.org"
   - git config --global user.name "Travis CI"
-  - mkdir ~/.ssh
+  - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
   - echo "$ID_RSA_BASE64"|base64 -d > ~/.ssh/id_rsa
   - chmod 600 ~/.ssh/id_rsa
