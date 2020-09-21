@@ -37,7 +37,7 @@ templates:
         name: spotify
         repository: deb http://repository.spotify.com stable non-free
         dockerfilecontent: |
-          FROM docker-app-ubuntu-x11:latest
+          FROM ubuntu-x11:latest
 
           ENV DEBIAN_FRONTEND noninteractive
 
