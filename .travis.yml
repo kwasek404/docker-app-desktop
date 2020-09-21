@@ -17,6 +17,6 @@ before_install:
 
 script:
   - git clone git@github.com:kwasek404/docker-app-desktop.git
-  - docker run -ti --rm -v $PWD/docker-app-desktop:/repo -v $PWD/.gitconfig:/root/.gitconfig kwasek/docker-app-desktop-updater:latest --dir /repo
-  - git push --follow-tags
+  - docker run -ti --rm -v $PWD/docker-app-desktop:/repo -v $PWD/.gitconfig:/root/.gitconfig kwasek/docker-app-desktop-updater:latest $(id -u) /repo
+  - cd docker-app-desktop && git push --follow-tags
 
