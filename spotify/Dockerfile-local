@@ -1,0 +1,14 @@
+FROM ubuntu-x11:focal-20200916.01
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN echo "deb http://repository.spotify.com stable non-free" > /etc/apt/sources.list.d/spotify.list
+RUN curl -L https://download.spotify.com/debian/pubkey.gpg | apt-key add -
+
+RUN apt-get -y install REPLACE_PACKAGE && \
+    apt-get clean
+
+USER root
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
