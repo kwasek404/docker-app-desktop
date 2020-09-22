@@ -17,9 +17,7 @@ before_install:
 
 script:
   - git clone git@github.com:kwasek404/docker-app-desktop.git
-  - echo $PWD/docker-app-desktop
-  - find $PWD/docker-app-desktop
-  - cat ~/.gitconfig
+  - ([ ! -z $TRAVIS_BRANCH ] && cd docker-app-desktop && git checkout $TRAVIS_BRANCH)
   - docker run -ti --rm -v $PWD/docker-app-desktop:/repo -v $PWD/.gitconfig:/home/docker/.gitconfig kwasek/docker-app-desktop-updater:latest $(id -u) /repo
   - cd docker-app-desktop && git push --follow-tags
 
