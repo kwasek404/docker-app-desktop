@@ -11,10 +11,10 @@ git:
   clone: false
 
 before_install:
-  - mkdir -p ~/.ssh
-  - chmod 700 ~/.ssh
-  - echo "$ID_RSA_BASE64"|base64 -d > ~/.ssh/id_rsa
-  - chmod 600 id_rsa
+  - mkdir -p $PWD/.ssh
+  - chmod 700 $PWD/.ssh
+  - echo "$ID_RSA_BASE64"|base64 -d > $PWD/.ssh/id_rsa
+  - chmod 600 $PWD/.ssh/id_rsa
   - docker pull kwasek/docker-app-desktop-updater:latest
 
 script:
