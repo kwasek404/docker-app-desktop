@@ -7,16 +7,11 @@ git:
   clone: false
 
 before_install:
-  - git config --global user.email "travis@travis-ci.org"
-  - git config --global user.name "Travis CI"
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
   - echo "$ID_RSA_BASE64"|base64 -d > ~/.ssh/id_rsa
-  - chmod 600 ~/.ssh/id_rsa
+  - chmod 600 id_rsa
   - docker pull kwasek/docker-app-desktop-updater:latest
 
 script:
-  - git clone git@github.com:kwasek404/docker-app-desktop.git
-  - docker run -ti --rm -v $PWD/docker-app-desktop:/repo -v $PWD/.gitconfig:/root/.gitconfig kwasek/docker-app-desktop-updater:latest $(id -u) /repo
-  - cd docker-app-desktop && git push --follow-tags
-
+  - docker run -ti --rm -v $PWD/.ssh:/.ssh kwasek/docker-app-desktop-updater:latest $(id -u) git@github.com:kwasek404/docker-app-desktop.git $([ ! -z $TRAVIS_BRANCH ]&&echo $TRAVIS_BRANCH||echo master)
